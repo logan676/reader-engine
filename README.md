@@ -67,6 +67,7 @@ engine.callbacks.onStateChange = (state) => {
 ### React
 
 ```tsx
+import React, { useEffect } from 'react';
 import { ReaderProvider, ReaderView, useReader } from '@readmigo/reader-engine/react';
 
 function App() {
@@ -82,7 +83,7 @@ function ReaderPage({ bookId }: { bookId: string }) {
 
   useEffect(() => {
     loadBook(bookId).then(() => loadChapter(0));
-  }, [bookId]);
+  }, [bookId, loadBook, loadChapter]);
 
   return (
     <div>
