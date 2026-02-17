@@ -59,7 +59,8 @@ graph LR
 | `renderer/` | `style-injector.ts`, `chapter-renderer.ts` | CSS generation from settings, DOMPurify HTML rendering |
 | `core/` | `paginator.ts`, `scroll-mode.ts` | CSS column pagination engine, scroll-based reading mode |
 | `navigation/` | `chapter-manager.ts`, `progress.ts` | Chapter traversal state machine, overall reading progress |
-| `react/` | `index.tsx` | React Provider, View component, and hooks |
+| `engine.ts` | `engine.ts` | ReaderEngine facade: orchestrates all modules behind a single API |
+| `react/` | `context.tsx`, `ReaderView.tsx`, `hooks.ts` | ReaderProvider, ReaderView component, useReader/useReaderSettings/useChapters hooks |
 
 ## Data Flow
 
@@ -76,7 +77,7 @@ sequenceDiagram
     Engine->>API: getBookDetail(bookId)
     API-->>Engine: BookDetail + ChapterSummary[]
 
-    User->>Engine: loadChapter(chapterId)
+    User->>Engine: loadChapter(index)
     Engine->>CL: loadChapter(bookId, chapterId)
     CL->>API: getChapterContent()
     API-->>CL: ChapterContent (metadata + contentUrl)
