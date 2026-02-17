@@ -24,6 +24,10 @@ npm install @readmigo/reader-engine
 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for module diagrams and data flow.
 
+## Design Document
+
+See [docs/DESIGN.md](./docs/DESIGN.md) for detailed design documentation covering architecture decisions, core mechanisms, data flow, security, and extensibility.
+
 ## API Reference
 
 See [docs/API.md](./docs/API.md) for complete type and method documentation.
