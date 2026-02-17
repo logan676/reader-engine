@@ -2,12 +2,100 @@
 
 ## Table of Contents
 
+- [ReaderEngine (Facade)](#readerengine-facade)
 - [Types](#types)
 - [API Module](#api-module)
 - [Renderer Module](#renderer-module)
 - [Core Module](#core-module)
 - [Navigation Module](#navigation-module)
+- [React Wrapper](#react-wrapper)
 - [Constants](#constants)
+
+---
+
+## ReaderEngine (Facade)
+
+The main entry point that orchestrates all internal modules (API, renderer, paginator, navigation) behind a single unified API.
+
+### ReaderEngineOptions
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| apiBaseUrl | `string` | Yes | Base URL for the book content API |
+| apiHeaders | `Record<string, string>` | No | Additional HTTP headers for API requests |
+| settings | `Partial<ReaderSettings>` | No | Override default reader settings |
+| fetch | `typeof fetch` | No | Custom fetch implementation |
+
+### ReaderEngine
+
+**Constructor**
+
+Takes `ReaderEngineOptions` to initialize the API client and default settings.
+
+**Lifecycle Methods**
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| mount | `container: HTMLElement` | `void` | Attach the engine to a DOM container |
+| unmount | - | `void` | Detach from DOM, clean up modes and renderer |
+
+**Book & Chapter Methods**
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| loadBook | `bookId: string` | `Promise<BookDetail>` | Fetch book detail and initialize chapter manager |
+| loadChapter | `index: number` | `Promise<void>` | Load chapter by index, render, and set up pagination |
+| goToChapter | `index: number` | `Promise<void>` | Alias for loadChapter |
+| goToChapterId | `chapterId: string` | `Promise<void>` | Load chapter by its string ID |
+
+**Page Navigation Methods**
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| nextPage | - | `boolean` | Advance to next page; auto-advances to next chapter at end |
+| prevPage | - | `boolean` | Go to previous page; auto-goes to prev chapter at start |
+
+**Settings**
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| updateSettings | `partial: Partial<ReaderSettings>` | `void` | Merge new settings, update CSS, recalculate pages |
+
+**Properties**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| settings | `ReaderSettings` | Current reader settings (copy) |
+| bookDetail | `BookDetail \| null` | Loaded book detail |
+| chapters | `ChapterSummary[]` | Sorted chapter list |
+| currentChapterIndex | `number` | Current chapter index |
+| state | `ReaderState` | Full reader state snapshot |
+
+### ReaderState
+
+| Field | Type | Description |
+|-------|------|-------------|
+| bookId | `string \| null` | Currently loaded book ID |
+| chapterIndex | `number` | Current chapter index |
+| currentPage | `number` | Current page in chapter (0-based) |
+| totalPages | `number` | Total pages in current chapter |
+| chapterProgress | `number` | Progress within chapter (0 to 1) |
+| overallProgress | `number` | Overall book progress (0 to 1) |
+| isFirstPage | `boolean` | Whether on first page of chapter |
+| isLastPage | `boolean` | Whether on last page of chapter |
+| isFirstChapter | `boolean` | Whether on first chapter |
+| isLastChapter | `boolean` | Whether on last chapter |
+| loading | `boolean` | Whether a load operation is in progress |
+
+### ReaderCallbacks
+
+| Callback | Type | Description |
+|----------|------|-------------|
+| onStateChange | `(state: ReaderState) => void` | Called whenever reader state changes |
+| onChapterChange | `(chapter: ChapterSummary, index: number) => void` | Called when a new chapter is loaded |
+| onError | `(error: Error) => void` | Called when an error occurs |
+
+Set callbacks via `engine.callbacks.onStateChange = ...`.
 
 ---
 
@@ -325,6 +413,77 @@ Manages chapter navigation state. Maintains a sorted chapter list and tracks the
 | **Returns** | `number` | Overall progress from 0.0 to 1.0 |
 
 Returns 0 if `totalChapters <= 0`. For single-page chapters, chapter progress is treated as 1.
+
+---
+
+## React Wrapper
+
+Import from `@readmigo/reader-engine/react`.
+
+### ReaderProvider
+
+Wraps the application tree to provide reader engine context to child components.
+
+**Props (ReaderProviderProps)**
+
+Extends `ReaderEngineOptions` with:
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| children | `ReactNode` | Yes | Child components |
+| onError | `(error: Error) => void` | No | Error callback |
+| onChapterChange | `(chapter: ChapterSummary, index: number) => void` | No | Chapter change callback |
+| apiBaseUrl | `string` | Yes | Inherited from ReaderEngineOptions |
+| apiHeaders | `Record<string, string>` | No | Inherited from ReaderEngineOptions |
+| settings | `Partial<ReaderSettings>` | No | Inherited from ReaderEngineOptions |
+
+### ReaderView
+
+Renders the reader viewport. Mounts the engine to a DOM div and handles tap zones for navigation.
+
+**Props (ReaderViewProps)**
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| className | `string` | No | CSS class for the container div |
+| style | `CSSProperties` | No | Inline styles for the container div |
+| onTapLeft | `() => void` | No | Called when left 30% of viewport is tapped |
+| onTapRight | `() => void` | No | Called when right 30% of viewport is tapped |
+| onTapCenter | `() => void` | No | Called when center 40% of viewport is tapped |
+
+Tap zone layout:
+
+| Zone | Range | Default Action |
+|------|-------|----------------|
+| Left | 0% - 30% | `prevPage()` |
+| Center | 30% - 70% | No navigation (custom handler) |
+| Right | 70% - 100% | `nextPage()` |
+
+### ReaderContextValue
+
+The full context value available via `useReaderContext()`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| engine | `ReaderEngine` | The underlying engine instance |
+| state | `ReaderState` | Current reader state (reactive) |
+| bookDetail | `BookDetail \| null` | Loaded book detail |
+| chapters | `ChapterSummary[]` | Sorted chapter list |
+| loadBook | `(bookId: string) => Promise<BookDetail>` | Load a book |
+| loadChapter | `(index: number) => Promise<void>` | Load a chapter by index |
+| nextPage | `() => boolean` | Navigate to next page |
+| prevPage | `() => boolean` | Navigate to previous page |
+| goToChapter | `(index: number) => Promise<void>` | Jump to a chapter |
+| updateSettings | `(partial: Partial<ReaderSettings>) => void` | Update reader settings |
+
+### Hooks
+
+| Hook | Returns | Description |
+|------|---------|-------------|
+| `useReader()` | `{ state, loadBook, loadChapter, nextPage, prevPage, goToChapter }` | Core reader state and navigation methods |
+| `useReaderSettings()` | `{ settings, updateSettings }` | Current settings and update function |
+| `useChapters()` | `{ chapters, currentIndex, totalChapters, bookTitle }` | Chapter list and current position |
+| `useReaderContext()` | `ReaderContextValue` | Full context value (advanced usage) |
 
 ---
 

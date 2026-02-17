@@ -50,6 +50,23 @@ graph LR
         CM[ChapterManager]
         PR[Progress Calculator]
     end
+
+    subgraph "engine"
+        RE[ReaderEngine Facade]
+    end
+
+    subgraph "react/"
+        RP[ReaderProvider] --> RV[ReaderView]
+        RP --> H[useReader / useReaderSettings / useChapters]
+    end
+
+    RE --> AC
+    RE --> CR
+    RE --> P
+    RE --> SM
+    RE --> CM
+    RE --> PR
+    RP --> RE
 ```
 
 | Module | Files | Purpose |

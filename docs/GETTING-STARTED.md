@@ -27,48 +27,47 @@ npm install @readmigo/reader-engine react react-dom
 
 ## Integration Flow
 
-### Vanilla TypeScript
+### Vanilla TypeScript (using ReaderEngine facade)
 
 ```mermaid
 sequenceDiagram
     participant App
-    participant AC as ApiClient
-    participant CL as ContentLoader
-    participant CR as ChapterRenderer
-    participant P as Paginator
-    participant CM as ChapterManager
+    participant RE as ReaderEngine
+    participant API as Internal API
+    participant DOM as Internal Renderer
 
-    App->>AC: Create with baseUrl
-    App->>CL: Create with ApiClient
-    App->>AC: getBookDetail(bookId)
-    AC-->>App: BookDetail
-    App->>CM: Create with chapters
+    App->>RE: new ReaderEngine({ apiBaseUrl })
+    App->>RE: mount(containerElement)
+    App->>RE: loadBook(bookId)
+    RE->>API: getBookDetail
+    API-->>RE: BookDetail
+    RE-->>App: BookDetail returned
 
-    App->>CL: loadChapter(bookId, chapterId)
-    CL-->>App: LoadedChapter
+    App->>RE: loadChapter(0)
+    RE->>API: fetch chapter + HTML
+    RE->>DOM: render + paginate
+    RE-->>App: onStateChange(ReaderState)
 
-    App->>CR: Create with root element + settings
-    App->>CR: render(html)
+    App->>RE: nextPage()
+    RE-->>App: onStateChange(ReaderState)
 
-    App->>P: Create with viewport + content elements
-    Note over P: Pages auto-calculated
-
-    App->>P: nextPage() / prevPage()
-    P-->>App: PageState callback
+    App->>RE: updateSettings({ theme: 'dark' })
+    RE->>DOM: re-style + re-paginate
+    RE-->>App: onStateChange(ReaderState)
 ```
 
 ### React Integration
 
 ```mermaid
 graph TD
-    RP[ReaderProvider] --> |context| RV[ReaderView]
-    RP --> |context| UR[useReader hook]
-    RP --> |context| URS[useReaderSettings hook]
-    RP --> |context| UC[useChapters hook]
+    RP["ReaderProvider (apiBaseUrl, settings)"] --> |context| RV["ReaderView (tap zones)"]
+    RP --> |context| UR["useReader()"]
+    RP --> |context| URS["useReaderSettings()"]
+    RP --> |context| UC["useChapters()"]
 
-    UR --> |state| App[Application]
-    URS --> |settings| App
-    UC --> |chapters| App
+    UR --> |"state, loadBook, nextPage, prevPage"| App[Application]
+    URS --> |"settings, updateSettings"| App
+    UC --> |"chapters, currentIndex, bookTitle"| App
 ```
 
 ## Customizing Settings
@@ -86,7 +85,7 @@ Override any field from `DEFAULT_SETTINGS` to customize the reading experience:
 | `hyphenation` | Enable/disable CSS hyphenation |
 | `margin` | Adjust content padding |
 
-When settings change, call `ChapterRenderer.updateSettings()` followed by `Paginator.recalculate()` to apply changes and re-paginate.
+With the `ReaderEngine` facade, call `engine.updateSettings({ ... })` -- it handles CSS regeneration and re-pagination internally. When using lower-level modules directly, call `ChapterRenderer.updateSettings()` followed by `Paginator.recalculate()`.
 
 ## Theme Switching
 
@@ -124,7 +123,18 @@ stateDiagram-v2
     }
 ```
 
-Navigation workflow:
+Navigation workflow (using ReaderEngine facade):
+
+| Step | Action | Result |
+|------|--------|--------|
+| 1 | `engine.loadBook(bookId)` | Fetches book detail, initializes chapter manager |
+| 2 | `engine.loadChapter(0)` | Loads first chapter, renders, paginates |
+| 3 | `engine.nextPage()` / `engine.prevPage()` | Navigates pages; auto-advances chapters at boundaries |
+| 4 | `engine.goToChapter(index)` or `engine.goToChapterId(id)` | Jumps to any chapter |
+| 5 | Read `engine.state.overallProgress` | Overall progress (0.0 to 1.0) |
+| 6 | Listen via `engine.callbacks.onStateChange` | Reactive state updates |
+
+Navigation workflow (using low-level modules):
 
 | Step | Action | Result |
 |------|--------|--------|
